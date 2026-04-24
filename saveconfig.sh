@@ -51,7 +51,7 @@ else
 fi
 
 # WireGuard конфіг
-if [ -f "$WG_CONF" ]; then
+if sudo test -f "$WG_CONF"; then
     sudo cp "$WG_CONF" "$TMPDIR/wireguard/devadmin.conf"
     sudo chown "$USER:$USER" "$TMPDIR/wireguard/devadmin.conf"
     echo "==> WireGuard: devadmin.conf"

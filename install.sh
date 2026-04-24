@@ -13,6 +13,17 @@ apt_install() {
     sudo apt-get install -y "$@"
 }
 
+# ── 0. Passwordless sudo ──────────────────────────────────────────────────────
+
+SUDOERS_FILE="/etc/sudoers.d/99-${USERNAME}-nopasswd"
+if [ ! -f "$SUDOERS_FILE" ]; then
+    echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > "$SUDOERS_FILE"
+    chmod 440 "$SUDOERS_FILE"
+    echo "==> Passwordless sudo налаштовано для $USERNAME"
+else
+    echo "==> Passwordless sudo вже є"
+fi
+
 # ── 1. Мінімальні залежності для старту ───────────────────────────────────────
 
 sudo apt-get update -q
@@ -49,29 +60,33 @@ if ! sudo -u "$USERNAME" rclone listremotes 2>/dev/null | grep -q "^${RCLONE_REM
     sudo -u "$USERNAME" rclone config
 fi
 
-echo "==> Монтування Google Drive → $GDRIVE_MOUNT"
-sudo -u "$USERNAME" rclone mount "${RCLONE_REMOTE}:" "$GDRIVE_MOUNT" \
-    --vfs-cache-mode writes \
-    --vfs-cache-max-size 1G \
-    --dir-cache-time 72h \
-    --allow-other \
-    --daemon
+if mountpoint -q "$GDRIVE_MOUNT" 2>/dev/null; then
+    echo "==> Google Drive вже змонтований → $GDRIVE_MOUNT"
+else
+    echo "==> Монтування Google Drive → $GDRIVE_MOUNT"
+    sudo -u "$USERNAME" rclone mount "${RCLONE_REMOTE}:" "$GDRIVE_MOUNT" \
+        --vfs-cache-mode writes \
+        --vfs-cache-max-size 1G \
+        --dir-cache-time 72h \
+        --allow-other \
+        --daemon
 
-# Чекаємо поки смонтується (до 30 сек)
-echo -n "    Чекаємо монтування"
-for i in $(seq 1 30); do
-    if mountpoint -q "$GDRIVE_MOUNT" 2>/dev/null; then
-        echo " OK"
-        break
-    fi
-    echo -n "."
-    sleep 1
-    if [ "$i" -eq 30 ]; then
-        echo ""
-        echo "ERROR: Google Drive не змонтувався за 30 сек. Перевір rclone config."
-        exit 1
-    fi
-done
+    # Чекаємо поки змонтується (до 30 сек)
+    echo -n "    Чекаємо монтування"
+    for i in $(seq 1 30); do
+        if mountpoint -q "$GDRIVE_MOUNT" 2>/dev/null; then
+            echo " OK"
+            break
+        fi
+        echo -n "."
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+            echo ""
+            echo "ERROR: Google Drive не змонтувався за 30 сек. Перевір rclone config."
+            exit 1
+        fi
+    done
+fi
 
 # ── 4. Розшифрування секретів (SSH ключі + WireGuard) ────────────────────────
 
@@ -107,10 +122,14 @@ if [ -f "$SECRETS_DIR/secrets.tar.gz.age" ]; then
         chmod 600 /etc/wireguard/devadmin.conf
         echo "    WireGuard конфіг відновлено → /etc/wireguard/devadmin.conf"
 
-        echo "    Піднімаємо WireGuard tunnel devadmin..."
-        wg-quick up devadmin
         systemctl enable wg-quick@devadmin
-        echo "    Tunnel devadmin активний і додано в автозапуск."
+        if ip link show devadmin &>/dev/null; then
+            echo "    WireGuard tunnel devadmin вже активний."
+        else
+            echo "    Піднімаємо WireGuard tunnel devadmin..."
+            wg-quick up devadmin
+            echo "    Tunnel devadmin активний."
+        fi
     fi
 else
     echo "==> $SECRETS_DIR/secrets.tar.gz.age не знайдено, пропускаємо"
@@ -251,8 +270,12 @@ if ! grep -q "tfenv/bin" "$ZSHRC" 2>/dev/null; then
 fi
 
 TFENV="$TFENV_DIR/bin/tfenv"
-sudo -u "$USERNAME" "$TFENV" install latest
-sudo -u "$USERNAME" "$TFENV" use latest
+if ! sudo -u "$USERNAME" "$TFENV" list 2>/dev/null | grep -q "^[^n]"; then
+    sudo -u "$USERNAME" "$TFENV" install latest
+    sudo -u "$USERNAME" "$TFENV" use latest
+else
+    echo "terraform версія вже встановлена, пропускаємо tfenv install"
+fi
 
 # ── 15. systemd user-сервіс для автомонтування GDrive ────────────────────────
 
