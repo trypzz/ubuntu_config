@@ -112,3 +112,4 @@ git_branch() {
 setopt PROMPT_SUBST
 PROMPT='%{$fg[green]%}%n@%m%{$reset_color%}[%{$fg[blue]%}%~%{$reset_color%}]$(git_branch): '
 alias docker_claude='sudo docker run -v /home/bohdan/.claude.json:/root/.claude.json -v /home/bohdan/.claude:/root/.claude -v ./:/work -it my/claude:1.2'
+export PATH="$HOME/.tfenv/bin:$PATH"

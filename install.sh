@@ -1,10 +1,15 @@
 #!/bin/bash
 set -e
 
+if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: запускай через sudo: sudo ./install.sh"
+    exit 1
+fi
+
 USERNAME="${SUDO_USER:-$USER}"
 HOME_DIR="/home/$USERNAME"
 GDRIVE_MOUNT="$HOME_DIR/GoogleDrive"
-RCLONE_REMOTE="gdrive"
+RCLONE_REMOTE="bogdan.lavreniuk"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "==> Running as: $USERNAME, home: $HOME_DIR"
@@ -17,8 +22,8 @@ apt_install() {
 
 SUDOERS_FILE="/etc/sudoers.d/99-${USERNAME}-nopasswd"
 if [ ! -f "$SUDOERS_FILE" ]; then
-    echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > "$SUDOERS_FILE"
-    chmod 440 "$SUDOERS_FILE"
+    echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" | sudo tee "$SUDOERS_FILE" > /dev/null
+    sudo chmod 440 "$SUDOERS_FILE"
     echo "==> Passwordless sudo налаштовано для $USERNAME"
 else
     echo "==> Passwordless sudo вже є"
@@ -47,7 +52,8 @@ fi
 
 sudo -u "$USERNAME" mkdir -p "$GDRIVE_MOUNT"
 
-if ! sudo -u "$USERNAME" rclone listremotes 2>/dev/null | grep -q "^${RCLONE_REMOTE}:"; then
+RCLONE_CONF="$HOME_DIR/.config/rclone/rclone.conf"
+if ! grep -q "^\[${RCLONE_REMOTE}\]" "$RCLONE_CONF" 2>/dev/null; then
     echo ""
     echo "==> rclone не налаштований."
     echo "    Зараз відкриється rclone config."
@@ -57,14 +63,14 @@ if ! sudo -u "$USERNAME" rclone listremotes 2>/dev/null | grep -q "^${RCLONE_REM
     echo "      - scope: drive (повний доступ)"
     echo ""
     read -rp "    Натисни Enter щоб продовжити..."
-    sudo -u "$USERNAME" rclone config
+    sudo -u "$USERNAME" HOME="$HOME_DIR" rclone config
 fi
 
-if mountpoint -q "$GDRIVE_MOUNT" 2>/dev/null; then
+if grep -qs "$GDRIVE_MOUNT" /proc/mounts; then
     echo "==> Google Drive вже змонтований → $GDRIVE_MOUNT"
 else
     echo "==> Монтування Google Drive → $GDRIVE_MOUNT"
-    sudo -u "$USERNAME" rclone mount "${RCLONE_REMOTE}:" "$GDRIVE_MOUNT" \
+    sudo -u "$USERNAME" HOME="$HOME_DIR" rclone mount "${RCLONE_REMOTE}:" "$GDRIVE_MOUNT" \
         --vfs-cache-mode writes \
         --vfs-cache-max-size 1G \
         --dir-cache-time 72h \
@@ -74,7 +80,7 @@ else
     # Чекаємо поки змонтується (до 30 сек)
     echo -n "    Чекаємо монтування"
     for i in $(seq 1 30); do
-        if mountpoint -q "$GDRIVE_MOUNT" 2>/dev/null; then
+        if grep -qs "$GDRIVE_MOUNT" /proc/mounts; then
             echo " OK"
             break
         fi
@@ -93,16 +99,21 @@ fi
 SECRETS_DIR="$GDRIVE_MOUNT/secrets"
 SSH_DIR="$HOME_DIR/.ssh"
 
-if [ -f "$SECRETS_DIR/secrets.tar.gz.age" ]; then
+if [ -f "$SECRETS_DIR/secrets.tar.gz.gpg" ]; then
     echo ""
-    echo "==> Знайдено secrets.tar.gz.age. Розшифровуємо..."
-    echo "    (age запитає ключ-фразу один раз)"
+    echo "==> Знайдено secrets.tar.gz.gpg. Розшифровуємо..."
+
+    read -s -rp "Введи ключ-фразу: " PASSPHRASE; echo
 
     RESTORE_TMP="$(mktemp -d)"
     trap 'rm -rf "$RESTORE_TMP"' EXIT
 
-    sudo -u "$USERNAME" age -d "$SECRETS_DIR/secrets.tar.gz.age" \
-        | tar xzf - -C "$RESTORE_TMP"
+    if ! gpg --decrypt --batch --passphrase "$PASSPHRASE" \
+             "$SECRETS_DIR/secrets.tar.gz.gpg" \
+         | tar xzf - -C "$RESTORE_TMP"; then
+        echo "ERROR: Невірна ключ-фраза або пошкоджений файл."
+        exit 1
+    fi
 
     # SSH ключі
     if [ -d "$RESTORE_TMP/ssh" ] && [ -n "$(ls -A "$RESTORE_TMP/ssh")" ]; then
@@ -132,7 +143,7 @@ if [ -f "$SECRETS_DIR/secrets.tar.gz.age" ]; then
         fi
     fi
 else
-    echo "==> $SECRETS_DIR/secrets.tar.gz.age не знайдено, пропускаємо"
+    echo "==> $SECRETS_DIR/secrets.tar.gz.gpg не знайдено, пропускаємо"
 fi
 
 # ── 5. SSH config ─────────────────────────────────────────────────────────────
@@ -220,11 +231,31 @@ else
     echo "Signal Desktop already installed"
 fi
 
-# ── 10. KeePassXC ─────────────────────────────────────────────────────────────
+# ── 10. kubectl + kubectx ────────────────────────────────────────────────────
+
+if ! command -v kubectl &>/dev/null; then
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key \
+        | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
+https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /" \
+        | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    sudo apt-get update -q
+    apt_install kubectl
+else
+    echo "kubectl already installed"
+fi
+
+if ! command -v kubectx &>/dev/null; then
+    apt_install kubectx
+else
+    echo "kubectx already installed"
+fi
+
+# ── 11. KeePassXC ─────────────────────────────────────────────────────────────
 
 apt_install keepassxc
 
-# ── 11. Starship ──────────────────────────────────────────────────────────────
+# ── 12. Starship ──────────────────────────────────────────────────────────────
 
 if ! command -v starship &>/dev/null; then
     curl -sS https://starship.rs/install.sh | sudo sh -s -- --yes
@@ -232,7 +263,7 @@ else
     echo "Starship already installed"
 fi
 
-# ── 12. Default shell → zsh ───────────────────────────────────────────────────
+# ── 13. Default shell → zsh ───────────────────────────────────────────────────
 
 apt_install zsh
 ZSH_PATH="$(which zsh)"
@@ -243,7 +274,7 @@ else
     echo "zsh already default shell"
 fi
 
-# ── 13. Copy zshrc ────────────────────────────────────────────────────────────
+# ── 14. Copy zshrc ────────────────────────────────────────────────────────────
 
 if [ -f "$SCRIPT_DIR/zshrc" ]; then
     cp "$SCRIPT_DIR/zshrc" "$HOME_DIR/.zshrc"
@@ -253,7 +284,7 @@ else
     echo "WARNING: $SCRIPT_DIR/zshrc not found, skipping"
 fi
 
-# ── 14. tfenv + Terraform ─────────────────────────────────────────────────────
+# ── 15. tfenv + Terraform ─────────────────────────────────────────────────────
 
 TFENV_DIR="$HOME_DIR/.tfenv"
 
@@ -277,7 +308,7 @@ else
     echo "terraform версія вже встановлена, пропускаємо tfenv install"
 fi
 
-# ── 15. systemd user-сервіс для автомонтування GDrive ────────────────────────
+# ── 16. systemd user-сервіс для автомонтування GDrive ────────────────────────
 
 SYSTEMD_USER_DIR="$HOME_DIR/.config/systemd/user"
 mkdir -p "$SYSTEMD_USER_DIR"
@@ -312,7 +343,7 @@ XDG_RT="/run/user/$(id -u "$USERNAME")"
 sudo -u "$USERNAME" XDG_RUNTIME_DIR="$XDG_RT" systemctl --user daemon-reload
 sudo -u "$USERNAME" XDG_RUNTIME_DIR="$XDG_RT" systemctl --user enable rclone-gdrive.service
 
-# ── 16. KeePassXC → автовідкриття Passwords.kdbx ─────────────────────────────
+# ── 17. KeePassXC → автовідкриття Passwords.kdbx ─────────────────────────────
 
 KEEPASSXC_CONFIG_DIR="$HOME_DIR/.config/keepassxc"
 KEEPASSXC_INI="$KEEPASSXC_CONFIG_DIR/keepassxc.ini"

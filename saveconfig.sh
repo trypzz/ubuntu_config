@@ -7,11 +7,11 @@ SSH_DIR="$HOME/.ssh"
 WG_CONF="/etc/wireguard/devadmin.conf"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ── age: встановити якщо нема ──────────────────────────────────────────────────
+# ── gpg: встановити якщо нема ─────────────────────────────────────────────────
 
-if ! command -v age &>/dev/null; then
-    echo "==> Встановлення age..."
-    sudo apt-get install -y age
+if ! command -v gpg &>/dev/null; then
+    echo "==> Встановлення gpg..."
+    sudo apt-get install -y gnupg
 fi
 
 # ── Перевірки ─────────────────────────────────────────────────────────────────
@@ -64,18 +64,32 @@ fi
 mkdir -p "$SECRETS_DIR"
 chmod 700 "$SECRETS_DIR"
 
-if [ -f "$SECRETS_DIR/secrets.tar.gz.age" ]; then
+if [ -f "$SECRETS_DIR/secrets.tar.gz.gpg" ]; then
     echo ""
-    echo "УВАГА: $SECRETS_DIR/secrets.tar.gz.age буде перезаписаний."
+    echo "УВАГА: $SECRETS_DIR/secrets.tar.gz.gpg буде перезаписаний."
     read -rp "Продовжити? [y/N] " confirm
     [[ "$confirm" =~ ^[Yy]$ ]] || { echo "Скасовано."; exit 0; }
 fi
 
-echo ""
-echo "==> Шифрування (age запитає ключ-фразу двічі)..."
-tar czf - -C "$TMPDIR" . | age --passphrase --armor -o "$SECRETS_DIR/secrets.tar.gz.age"
+# ── Пароль з підтвердженням ───────────────────────────────────────────────────
 
-echo "==> Збережено → $SECRETS_DIR/secrets.tar.gz.age"
+while true; do
+    read -s -rp "Введи ключ-фразу: " PASSPHRASE; echo
+    read -s -rp "Підтвердь ключ-фразу: " PASSPHRASE2; echo
+    if [ "$PASSPHRASE" = "$PASSPHRASE2" ]; then
+        break
+    fi
+    echo "Ключ-фрази не збігаються, спробуй ще раз."
+done
+
+# ── Шифрування ────────────────────────────────────────────────────────────────
+
+echo "==> Шифрування..."
+tar czf - -C "$TMPDIR" . \
+    | gpg --symmetric --cipher-algo AES256 --batch --passphrase "$PASSPHRASE" \
+          --output "$SECRETS_DIR/secrets.tar.gz.gpg"
+
+echo "==> Збережено → $SECRETS_DIR/secrets.tar.gz.gpg"
 
 # ── Git commit & push ─────────────────────────────────────────────────────────
 
