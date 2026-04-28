@@ -26,6 +26,25 @@ fi
 cp "$HOME/.zshrc" "$SCRIPT_DIR/zshrc"
 echo "==> Збережено .zshrc → ./zshrc"
 
+# ── VS Code settings + extensions → репозиторій ─────────────────────────────
+
+VSCODE_SETTINGS="$HOME/.config/Code/User/settings.json"
+if [ -f "$VSCODE_SETTINGS" ]; then
+    mkdir -p "$SCRIPT_DIR/vscode"
+    cp "$VSCODE_SETTINGS" "$SCRIPT_DIR/vscode/settings.json"
+    echo "==> Збережено VS Code settings → ./vscode/settings.json"
+else
+    echo "УВАГА: $VSCODE_SETTINGS не знайдено, пропускаємо."
+fi
+
+if command -v code &>/dev/null; then
+    mkdir -p "$SCRIPT_DIR/vscode"
+    code --list-extensions > "$SCRIPT_DIR/vscode/extensions.txt"
+    echo "==> Збережено список екстеншенів → ./vscode/extensions.txt"
+else
+    echo "УВАГА: code не знайдено, список екстеншенів не збережено."
+fi
+
 # ── wezterm.lua → репозиторій ─────────────────────────────────────────────────
 
 if [ -f "$HOME/.config/wezterm/wezterm.lua" ]; then

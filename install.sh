@@ -196,6 +196,28 @@ else
     echo "VS Code already installed"
 fi
 
+VSCODE_SETTINGS_SRC="$SCRIPT_DIR/vscode/settings.json"
+if [ -f "$VSCODE_SETTINGS_SRC" ]; then
+    sudo -u "$USERNAME" mkdir -p "$HOME_DIR/.config/Code/User"
+    cp "$VSCODE_SETTINGS_SRC" "$HOME_DIR/.config/Code/User/settings.json"
+    chown "$USERNAME:$USERNAME" "$HOME_DIR/.config/Code/User/settings.json"
+    echo "VS Code settings відновлено → $HOME_DIR/.config/Code/User/settings.json"
+else
+    echo "WARNING: $VSCODE_SETTINGS_SRC not found, skipping"
+fi
+
+VSCODE_EXTENSIONS_SRC="$SCRIPT_DIR/vscode/extensions.txt"
+if [ -f "$VSCODE_EXTENSIONS_SRC" ]; then
+    echo "==> Встановлення VS Code екстеншенів..."
+    while IFS= read -r ext; do
+        [ -z "$ext" ] && continue
+        sudo -u "$USERNAME" code --install-extension "$ext" --force
+    done < "$VSCODE_EXTENSIONS_SRC"
+    echo "==> VS Code екстеншени встановлено."
+else
+    echo "WARNING: $VSCODE_EXTENSIONS_SRC not found, skipping"
+fi
+
 # ── 7. Google Chrome ──────────────────────────────────────────────────────────
 
 if ! command -v google-chrome &>/dev/null; then

@@ -25,8 +25,8 @@ config.tab_max_width = 40
 config.cursor_blink_rate = 500
 config.default_cursor_style = 'BlinkingBar'
 
--- Sixel (для mpv в терміналі)
-config.enable_sixel = true
+-- Kitty graphics / Sixel
+config.enable_kitty_graphics = true
 
 -- Закрити вікно без підтвердження якщо один таб
 config.window_close_confirmation = 'NeverPrompt'
