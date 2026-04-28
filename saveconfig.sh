@@ -26,6 +26,15 @@ fi
 cp "$HOME/.zshrc" "$SCRIPT_DIR/zshrc"
 echo "==> Збережено .zshrc → ./zshrc"
 
+# ── wezterm.lua → репозиторій ─────────────────────────────────────────────────
+
+if [ -f "$HOME/.config/wezterm/wezterm.lua" ]; then
+    cp "$HOME/.config/wezterm/wezterm.lua" "$SCRIPT_DIR/wezterm.lua"
+    echo "==> Збережено wezterm.lua → ./wezterm.lua"
+else
+    echo "УВАГА: ~/.config/wezterm/wezterm.lua не знайдено, пропускаємо."
+fi
+
 # ── Збираємо секрети в тимчасову директорію ───────────────────────────────────
 
 TMPDIR="$(mktemp -d)"
@@ -86,7 +95,7 @@ done
 
 echo "==> Шифрування..."
 tar czf - -C "$TMPDIR" . \
-    | gpg --symmetric --cipher-algo AES256 --batch --passphrase "$PASSPHRASE" \
+    | gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "$PASSPHRASE" \
           --output "$SECRETS_DIR/secrets.tar.gz.gpg"
 
 echo "==> Збережено → $SECRETS_DIR/secrets.tar.gz.gpg"

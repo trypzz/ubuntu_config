@@ -70,9 +70,16 @@ ZSH_THEME="robbyrussell"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git)
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 
 source $ZSH/oh-my-zsh.sh
+
+# History
+HISTSIZE=50000
+SAVEHIST=50000
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+setopt SHARE_HISTORY
 
 # User configuration
 
@@ -113,3 +120,30 @@ setopt PROMPT_SUBST
 PROMPT='%{$fg[green]%}%n@%m%{$reset_color%}[%{$fg[blue]%}%~%{$reset_color%}]$(git_branch): '
 alias docker_claude='sudo docker run -v /home/bohdan/.claude.json:/root/.claude.json -v /home/bohdan/.claude:/root/.claude -v ./:/work -it my/claude:1.2'
 export PATH="$HOME/.tfenv/bin:$PATH"
+
+# Navigation
+alias ll='ls -lah --color=auto'
+alias la='ls -A --color=auto'
+alias grep='grep --color=auto'
+
+# Python
+alias py='python3'
+alias pip='pip3'
+alias venv='python3 -m venv .venv && source .venv/bin/activate'
+
+# Terraform
+alias tf='terraform'
+alias tfi='terraform init'
+alias tfp='terraform plan'
+alias tfa='terraform apply'
+alias tfd='terraform destroy'
+alias tfo='terraform output'
+
+# Ansible
+alias ap='ansible-playbook'
+alias al='ansible -m ping all'
+
+# Logs
+alias lf='less -R'
+alias tf-log='tail -f'
+alias lgrep='grep --color=auto -i'

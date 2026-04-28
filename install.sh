@@ -284,7 +284,38 @@ else
     echo "WARNING: $SCRIPT_DIR/zshrc not found, skipping"
 fi
 
-# ── 15. tfenv + Terraform ─────────────────────────────────────────────────────
+# ── 15. zsh плагіни ──────────────────────────────────────────────────────────
+
+ZSH_CUSTOM_DIR="${HOME_DIR}/.oh-my-zsh/custom"
+
+if [ ! -d "${ZSH_CUSTOM_DIR}/plugins/zsh-autosuggestions" ]; then
+    sudo -u "$USERNAME" git clone https://github.com/zsh-users/zsh-autosuggestions \
+        "${ZSH_CUSTOM_DIR}/plugins/zsh-autosuggestions"
+    echo "zsh-autosuggestions встановлено"
+else
+    echo "zsh-autosuggestions вже є"
+fi
+
+if [ ! -d "${ZSH_CUSTOM_DIR}/plugins/zsh-syntax-highlighting" ]; then
+    sudo -u "$USERNAME" git clone https://github.com/zsh-users/zsh-syntax-highlighting \
+        "${ZSH_CUSTOM_DIR}/plugins/zsh-syntax-highlighting"
+    echo "zsh-syntax-highlighting встановлено"
+else
+    echo "zsh-syntax-highlighting вже є"
+fi
+
+# ── 16. WezTerm конфіг ───────────────────────────────────────────────────────
+
+if [ -f "$SCRIPT_DIR/wezterm.lua" ]; then
+    sudo -u "$USERNAME" mkdir -p "$HOME_DIR/.config/wezterm"
+    cp "$SCRIPT_DIR/wezterm.lua" "$HOME_DIR/.config/wezterm/wezterm.lua"
+    chown "$USERNAME:$USERNAME" "$HOME_DIR/.config/wezterm/wezterm.lua"
+    echo "Copied wezterm.lua → $HOME_DIR/.config/wezterm/wezterm.lua"
+else
+    echo "WARNING: $SCRIPT_DIR/wezterm.lua not found, skipping"
+fi
+
+# ── 17. tfenv + Terraform ─────────────────────────────────────────────────────
 
 TFENV_DIR="$HOME_DIR/.tfenv"
 
@@ -308,7 +339,7 @@ else
     echo "terraform версія вже встановлена, пропускаємо tfenv install"
 fi
 
-# ── 16. systemd user-сервіс для автомонтування GDrive ────────────────────────
+# ── 18. systemd user-сервіс для автомонтування GDrive ────────────────────────
 
 SYSTEMD_USER_DIR="$HOME_DIR/.config/systemd/user"
 mkdir -p "$SYSTEMD_USER_DIR"
@@ -343,7 +374,7 @@ XDG_RT="/run/user/$(id -u "$USERNAME")"
 sudo -u "$USERNAME" XDG_RUNTIME_DIR="$XDG_RT" systemctl --user daemon-reload
 sudo -u "$USERNAME" XDG_RUNTIME_DIR="$XDG_RT" systemctl --user enable rclone-gdrive.service
 
-# ── 17. KeePassXC → автовідкриття Passwords.kdbx ─────────────────────────────
+# ── 19. KeePassXC → автовідкриття Passwords.kdbx ─────────────────────────────
 
 KEEPASSXC_CONFIG_DIR="$HOME_DIR/.config/keepassxc"
 KEEPASSXC_INI="$KEEPASSXC_CONFIG_DIR/keepassxc.ini"
