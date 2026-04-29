@@ -37,16 +37,7 @@ else
     echo "УВАГА: ~/.config/mc/ini не знайдено, пропускаємо."
 fi
 
-# ── VS Code settings + extensions → репозиторій ─────────────────────────────
-
-VSCODE_SETTINGS="$HOME_DIR/.config/Code/User/settings.json"
-if [ -f "$VSCODE_SETTINGS" ]; then
-    mkdir -p "$SCRIPT_DIR/vscode"
-    cp "$VSCODE_SETTINGS" "$SCRIPT_DIR/vscode/settings.json"
-    echo "==> Збережено VS Code settings → ./vscode/settings.json"
-else
-    echo "УВАГА: $VSCODE_SETTINGS не знайдено, пропускаємо."
-fi
+# ── VS Code extensions → репозиторій ────────────────────────────────────────
 
 if command -v code &>/dev/null; then
     mkdir -p "$SCRIPT_DIR/vscode"
