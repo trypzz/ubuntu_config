@@ -1,7 +1,9 @@
 eamodio.gitlens
+github.copilot-chat
 golang.go
 ms-python.debugpy
 ms-python.python
+ms-python.vscode-python-envs
 redhat.ansible
 redhat.vscode-yaml
 shipitsmarter.sops-edit

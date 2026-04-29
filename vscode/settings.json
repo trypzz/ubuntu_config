@@ -799,11 +799,17 @@
     "python.defaultInterpreterPath": "/home/bohdan/python/.venv",
     "ansible.validation.enabled": false,
     "window.customTitleBarVisibility": "auto",
-    "gpt-code.apiKey": "REMOVED_OPENAI_KEY",
+    "gpt-code.apiKey": "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",
     "diffEditor.codeLens": true,
     "easycode.model": "gpt-4o",
     "easycode.userEmail": "bogdan.lavreniuK@gmail.com",
     "editor.unicodeHighlight.ambiguousCharacters": false,
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
+    },
     // "[ini]": {
 
     // }
