@@ -465,5 +465,20 @@ PYEOF
     chown -R "$USERNAME:$USERNAME" "$KEEPASSXC_CONFIG_DIR"
 fi
 
+# ── 20. Midnight Commander (mc + mcedit) ─────────────────────────────────────
+
+apt_install mc
+
+MC_CONFIG_DIR="$HOME_DIR/.config/mc"
+sudo -u "$USERNAME" mkdir -p "$MC_CONFIG_DIR"
+
+if [ -f "$SCRIPT_DIR/mc.ini" ]; then
+    cp "$SCRIPT_DIR/mc.ini" "$MC_CONFIG_DIR/ini"
+    chown "$USERNAME:$USERNAME" "$MC_CONFIG_DIR/ini"
+    echo "mc config відновлено → $MC_CONFIG_DIR/ini"
+else
+    echo "WARNING: $SCRIPT_DIR/mc.ini not found, skipping"
+fi
+
 echo ""
 echo "==> Done. Log out and back in for zsh to take effect."

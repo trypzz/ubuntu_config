@@ -1,9 +1,11 @@
 #!/bin/bash
 set -e
 
-GDRIVE_MOUNT="$HOME/GoogleDrive"
+REAL_USER="${SUDO_USER:-$USER}"
+HOME_DIR="$(getent passwd "$REAL_USER" | cut -d: -f6)"
+GDRIVE_MOUNT="$HOME_DIR/GoogleDrive"
 SECRETS_DIR="$GDRIVE_MOUNT/secrets"
-SSH_DIR="$HOME/.ssh"
+SSH_DIR="$HOME_DIR/.ssh"
 WG_CONF="/etc/wireguard/devadmin.conf"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -16,19 +18,28 @@ fi
 
 # ── Перевірки ─────────────────────────────────────────────────────────────────
 
-if ! mountpoint -q "$GDRIVE_MOUNT" 2>/dev/null; then
+if ! grep -qs "$GDRIVE_MOUNT" /proc/mounts; then
     echo "ERROR: Google Drive не змонтований ($GDRIVE_MOUNT)."
     exit 1
 fi
 
 # ── zshrc → репозиторій ───────────────────────────────────────────────────────
 
-cp "$HOME/.zshrc" "$SCRIPT_DIR/zshrc"
+cp "$HOME_DIR/.zshrc" "$SCRIPT_DIR/zshrc"
 echo "==> Збережено .zshrc → ./zshrc"
+
+# ── MC config → репозиторій ──────────────────────────────────────────────────
+
+if [ -f "$HOME_DIR/.config/mc/ini" ]; then
+    cp "$HOME_DIR/.config/mc/ini" "$SCRIPT_DIR/mc.ini"
+    echo "==> Збережено MC config → ./mc.ini"
+else
+    echo "УВАГА: ~/.config/mc/ini не знайдено, пропускаємо."
+fi
 
 # ── VS Code settings + extensions → репозиторій ─────────────────────────────
 
-VSCODE_SETTINGS="$HOME/.config/Code/User/settings.json"
+VSCODE_SETTINGS="$HOME_DIR/.config/Code/User/settings.json"
 if [ -f "$VSCODE_SETTINGS" ]; then
     mkdir -p "$SCRIPT_DIR/vscode"
     cp "$VSCODE_SETTINGS" "$SCRIPT_DIR/vscode/settings.json"
@@ -39,7 +50,7 @@ fi
 
 if command -v code &>/dev/null; then
     mkdir -p "$SCRIPT_DIR/vscode"
-    code --list-extensions > "$SCRIPT_DIR/vscode/extensions.txt"
+    sudo -u "$REAL_USER" code --list-extensions > "$SCRIPT_DIR/vscode/extensions.txt"
     echo "==> Збережено список екстеншенів → ./vscode/extensions.txt"
 else
     echo "УВАГА: code не знайдено, список екстеншенів не збережено."
@@ -47,8 +58,8 @@ fi
 
 # ── wezterm.lua → репозиторій ─────────────────────────────────────────────────
 
-if [ -f "$HOME/.config/wezterm/wezterm.lua" ]; then
-    cp "$HOME/.config/wezterm/wezterm.lua" "$SCRIPT_DIR/wezterm.lua"
+if [ -f "$HOME_DIR/.config/wezterm/wezterm.lua" ]; then
+    cp "$HOME_DIR/.config/wezterm/wezterm.lua" "$SCRIPT_DIR/wezterm.lua"
     echo "==> Збережено wezterm.lua → ./wezterm.lua"
 else
     echo "УВАГА: ~/.config/wezterm/wezterm.lua не знайдено, пропускаємо."
@@ -89,8 +100,8 @@ fi
 
 # ── Шифрування → ~/GoogleDrive/secrets/ ──────────────────────────────────────
 
-mkdir -p "$SECRETS_DIR"
-chmod 700 "$SECRETS_DIR"
+sudo -u "$REAL_USER" mkdir -p "$SECRETS_DIR"
+sudo -u "$REAL_USER" chmod 700 "$SECRETS_DIR"
 
 if [ -f "$SECRETS_DIR/secrets.tar.gz.gpg" ]; then
     echo ""
@@ -114,7 +125,7 @@ done
 
 echo "==> Шифрування..."
 tar czf - -C "$TMPDIR" . \
-    | gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "$PASSPHRASE" \
+    | sudo -u "$REAL_USER" gpg --symmetric --cipher-algo AES256 --batch --yes --passphrase "$PASSPHRASE" \
           --output "$SECRETS_DIR/secrets.tar.gz.gpg"
 
 echo "==> Збережено → $SECRETS_DIR/secrets.tar.gz.gpg"
@@ -123,9 +134,10 @@ echo "==> Збережено → $SECRETS_DIR/secrets.tar.gz.gpg"
 
 SAVE_DATE=$(date +%s)
 cd "$SCRIPT_DIR"
-git add .
-git commit -m "save config $SAVE_DATE"
-git push origin main
+chown -R "$REAL_USER:$REAL_USER" "$SCRIPT_DIR"
+sudo -u "$REAL_USER" git add .
+sudo -u "$REAL_USER" git commit -m "save config $SAVE_DATE"
+sudo -u "$REAL_USER" git push origin main
 
 echo ""
 echo "==> Готово."
